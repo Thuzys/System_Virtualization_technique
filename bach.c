@@ -13,6 +13,20 @@
 #define PIPE_TOKEN "|"
 #define BLANK_CHAR " "
 
+/**
+ * Struct to hold a simple command information.
+ * The name of the command,
+ * The arguments,
+ * The redirections if they exist.
+ */
+typedef struct bach_command_t {
+    char *name;
+    char *args[MAX_ARGS];
+    char *redir_in;
+    char *redir_out;
+} BachCommand, *PBachCommand;
+
+
 void command_parser(char *line);
 char* trim(char *str);
 
@@ -46,8 +60,14 @@ void command_parser(char *line) {
     }
 }
 
-char* split(char *line, char *delim) {
+//returns the number or element of the array parts
+int split(char *line, char *delim, char *parts[], int parts_size) {
     char *token = strtok(line, delim);
+    while (/* condition */)
+    {
+        /* code */
+    }
+    
     return token;
 }
 
