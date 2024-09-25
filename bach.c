@@ -1,18 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-<<<<<<< Updated upstream
 #include <sys/wait.h>
 
 #define MAX_LINE 1024
 #define MAX_ARGS 64
-=======
-#include <unistd.h>
-#include <sys/wait.h>
-
-#define MAX_LINE 1024
-#define MAX_ARGS 20
->>>>>>> Stashed changes
 #define TRUE 1
 
 /**
