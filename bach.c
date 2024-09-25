@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
 
-const int MAX_LINE = 1024;
+#define MAX_LINE 1024
+#define MAX_ARGS 64
 #define TRUE 1
 
 /**
@@ -13,7 +15,7 @@ const int MAX_LINE = 1024;
  */
 typedef struct bach_command_t {
     char *name;
-    char *args;
+    char *args[MAX_ARGS];
     char *redir_in;
     char *redir_out;
 } BachCommand, *PBachCommand;
@@ -27,6 +29,6 @@ int main() {
             break;
         }
         // parse the command
+        // fun void xpto(BachCommand *cmd) {TODO()}
     }
-    
 }
