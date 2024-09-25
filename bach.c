@@ -27,15 +27,39 @@ typedef struct bach_command_t {
 } BachCommand, *PBachCommand;
 
 
-void command_parser(char *line);
-char* trim(char *str);
-
+//add args to main
 int main() {
-    printf(trim("  hello world  "));
-    return 0;
+    while (TRUE) {
+        char line[MAX_LINE];
+        printf("$: ");
+        if (!fgets(line, MAX_LINE, stdin)) {
+            break;
+        }
+        // parse the command
+        // fun void xpto(BachCommand *cmd) {TODO()}
+    }
 }
 
-//add args to main
+void executecmd(PBachCommand cmd){	
+    int child_pid;
+
+    if ((child_pid = fork()) == -1) {
+		perror("can't create new process");
+		exit(1);
+	}
+	else if (child_pid == 0) {
+		if (execvp(cmd.name, cmd.args) == -1) {
+			perror2("error on exec %s", cmd.name);
+			exit(1);
+		}
+	
+	}
+	else {
+		waitpid(child_pid, NULL, 0);
+	}
+
+    return;
+}
 // int main() {
 //     while (TRUE) {
 //         char line[MAX_LINE];
