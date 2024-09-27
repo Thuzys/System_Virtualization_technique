@@ -2,10 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include "utils.h"
 #include <sys/types.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/wait.h>
 
 #define MAX_LINE 1024
 #define MAX_ARGS 20
@@ -26,8 +26,6 @@
 typedef struct bach_command_t {
     char *name;
     char *args[MAX_ARGS];
-    char *redir_in;
-    char *redir_out;
 } BachCommand, *PBachCommand;
 
 void command_parser(char *line, PBachCommand bach_commands[MAX_ARGS]);
@@ -64,10 +62,9 @@ void executecmd(PBachCommand cmd){
 	}
 	else if (child_pid == 0) {
 		if (execvp(cmd->name, cmd->args) == -1) {
-			perror2("error on exec %s", cmd->name);
+			perror("exec error");
 			exit(1);
 		}
-	
 	}
 	else {
 		waitpid(child_pid, NULL, 0);
@@ -100,31 +97,19 @@ void command_parser(char *line, PBachCommand bach_commands[MAX_ARGS]) {
 
         // Create a new BachCommand
         PBachCommand bach_command = malloc(sizeof(BachCommand));
-         bach_command->name = args[0];
-        bach_command->redir_in = NULL;
-        bach_command->redir_out = NULL;
+        bach_command->name = args[0];
 
-        int k = 0;
         for (int j = 0; j < args_size; j++) {
             char *arg = args[j];
-            switch (arg[0])
-            {
-            case OUTPUT_TOKEN:
-                bach_command->redir_out = args[j + 1];
+                bach_command->args[j] = args[j];
                 break;
-            case INPUT_TOKEN:
-                bach_command->redir_in = args[j - 1];
-            default:
-                bach_command->args[k] = args[j];
-                k++;
-                break;
-            }
         }
         bach_command->args[args_size] = NULL;
-        
-        bach_commands[i] = bach_command;
-    }
+	
+		bach_commands[i] = bach_command;
+	}
 }
+
 
 //returns the number or element of the array parts
 int split(char *line, char *delim, char *parts[], int parts_size) {
@@ -154,12 +139,3 @@ char* trim(char* line) {
 
     return line;
 }
-
-//moments: 
-// 1. read line from user
-// 2. parse line into commands
-//parsing 
- //     cat text.txt | grep abc > output.txt
- //     cat text.txt , grep abc > output.txt
-    //     cat,text.txt ; grep,abc,>,output.tx,,
-    // ,, 
