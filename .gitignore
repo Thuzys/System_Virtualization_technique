@@ -3,3 +3,5 @@
 bach.dSYM/
 build/
 *.txt
+bach
+bach_test
