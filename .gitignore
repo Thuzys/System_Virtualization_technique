@@ -1,2 +1,5 @@
 *.json
 ./vscode/
+bach.dSYM/
+build/
+*.txt
