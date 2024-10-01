@@ -11,11 +11,11 @@
 #define MAX_ARGS 20
 #define TRUE 1
 
-#define EMPTY_CHAR '/0'       
-#define OUTPUT_TOKEN '>'     
-#define INPUT_TOKEN '<' 
-#define PIPE_TOKEN "|"
-#define BLANK_CHAR " "
+char *EMPTY_CHAR  = "/0";       
+char *OUTPUT_TOKEN = ">";     
+char *INPUT_TOKEN = "<";
+char *PIPE_TOKEN = "|";
+char *BLANK_CHAR = " ";
 
 /**
  * Struct to hold a simple command information.
@@ -26,7 +26,10 @@ typedef struct bach_command_t {
     int num_args;
     char *name;
     char **args;
+    FILE *input;
+    FILE *output;
 } BachCommand, *PBachCommand;
+// The size of the bach_command struct is 40 bytes
 
 // Functions signatures
 PBachCommand* command_parser(char *line, int *size);
@@ -36,37 +39,23 @@ void executecmd(PBachCommand cmd);
 void free_command(PBachCommand bach_command);
 void run_bach(char* line);
 
-//test of split function
-/*
-*    int main(int argc, char *argv[]) {
-*        int size;
-*        char *line = "cat text.txt | grep abc > output.txt";
-*       char** parts = split(line, PIPE_TOKEN, &size);
-*       for (int i = 0; i < size; i++) {
-*           printf("%s\n", parts[i]);
-*       }
-*       return 0;
-*   }
-*/
-
-// test of command_parser function
-/*
-    int main(){
-        int size;
-        char *line = "cat text.txt | grep abc > output.txt";
-        PBachCommand* bach_commands = command_parser(line, &size);
-        for (int i = 0; i < size; i++) {
-            PBachCommand bach_command = bach_commands[i];
-            printf("Command: %s\n", bach_command->name);
-            printf("Arguments: ");
-            for (int j = 0; j < bach_command->num_args; j++) {
-                printf("%s ", bach_command->args[j]);
-            }
-            printf("\n");
-        }
-        return 0;
-    }
-*/
+// int main(int argc, char *argv[]) {
+//     (void)argc; // Mark argc as unused
+//     (void)argv; // Mark argv as unused
+//     while (TRUE)
+//     {
+//         char line[MAX_LINE];
+//         printf("$: ");
+//         if(!fgets(line, MAX_LINE, stdin)) {
+//             break;
+//         }
+//         if (strcmp(line, "exit\n") == 0) {
+//             break;
+//         }
+//         run_bach(line);
+//     }
+//     return 0;
+// }
 
 /**
  * Run bach commands
@@ -100,6 +89,12 @@ void free_command(PBachCommand bach_command) {
         free(bach_command->args[i]);
     }
     free(bach_command->args);
+    if (bach_command->input != NULL) {
+        fclose(bach_command->input);
+    }
+    if (bach_command->output != NULL) {
+        fclose(bach_command->output);
+    }
     free(bach_command);
     return;
 }
@@ -110,22 +105,53 @@ void free_command(PBachCommand bach_command) {
  * The parent process waits for the child to finish
  * The command is executed using execvp
  */
-void executecmd(PBachCommand cmd){	
+void executecmd(PBachCommand cmd) {
     int child_pid;
+    int saved_stdin = -1;
+    int saved_stdout = -1;
+
+    // Save the original file descriptors
+    if (cmd->input != NULL) {
+        saved_stdin = dup(STDIN_FILENO);
+        if (saved_stdin == -1) {
+            perror("dup");
+            exit(1);
+        }
+        dup2(fileno(cmd->input), STDIN_FILENO);
+    }
+
+    if (cmd->output != NULL) {
+        saved_stdout = dup(STDOUT_FILENO);
+        if (saved_stdout == -1) {
+            perror("dup");
+            exit(1);
+        }
+        dup2(fileno(cmd->output), STDOUT_FILENO);
+    }
 
     if ((child_pid = fork()) == -1) {
-		perror("can't create new process");
-		exit(1);
-	}
-	else if (child_pid == 0) {
-		if (execvp(cmd->name, cmd->args) == -1) {
-			perror("exec error");
-			exit(1);
-		}
-	}
-	else {
-		waitpid(child_pid, NULL, 0);
-	}
+        perror("can't create new process");
+        exit(1);
+    } else if (child_pid == 0) {
+        if (execvp(cmd->name, cmd->args) == -1) {
+            perror("exec error");
+            exit(1);
+        }
+    } else {
+        waitpid(child_pid, NULL, 0);
+    }
+
+    // Restore the original file descriptors
+    if (cmd->input != NULL) {
+        dup2(saved_stdin, STDIN_FILENO);
+        close(saved_stdin);
+    }
+
+    if (cmd->output != NULL) {
+        dup2(saved_stdout, STDOUT_FILENO);
+        close(saved_stdout);
+    }
+
     return;
 }
 
@@ -137,38 +163,116 @@ void executecmd(PBachCommand cmd){
  */
 PBachCommand* command_parser(char *line, int *size) {
     int parts_size;
-    char **parts = split(line, PIPE_TOKEN, &parts_size);
+    char **parts = split(line, PIPE_TOKEN, &parts_size); // a malloc is done to allocate memory for the parts array // 3  -> 2
     
     // Allocate memory for the bach_commands array
-    PBachCommand* bach_commands = (PBachCommand*)malloc((unsigned long)parts_size * sizeof(PBachCommand));
+    PBachCommand* bach_commands = (PBachCommand*)malloc((unsigned long)parts_size * sizeof(PBachCommand)); // a malloc is done to allocate memory for the bach_commands array -> 3
     if (bach_commands == NULL) {
         perror("Error allocating memory for bach_commands");
+        for (int i = 0; i < parts_size; i++) {
+            free(parts[i]);
+        }
+        free(parts);
         exit(EXIT_FAILURE);
     }
 
     for (int i = 0; i < parts_size; i++) {
-        char* command = parts[i];
+        
+        char* command = parts[i]; // command is a pointer to the parts array, with is malloced
         int args_size;
-        char** args = split(command, BLANK_CHAR, &args_size);
+        char** args = split(command, BLANK_CHAR, &args_size); // malloc args; -> 8
+        free(command); // free the memory allocated for the command on the parts array -> 7
+        
         // Allocate memory for the bach_command
-        PBachCommand bach_command = malloc(sizeof(BachCommand));
+        PBachCommand bach_command = malloc(sizeof(BachCommand)); // -> 8
         if (bach_command == NULL) {
             perror("Error allocating memory for bach_command");
+            for (int j = 0; j < args_size; j++) {
+                free(args[j]);
+            }
+            free(args);
+            for (int j = 0; j < parts_size; j++) {
+                free(parts[j]);
+            }
+            free(parts);
+            free(bach_commands);
             exit(EXIT_FAILURE);
         }
+        
+        int actual_args_size = 0;
         // Allocate memory for args with an extra slot for the null terminator
-        char** args_with_null = malloc((args_size + 1) * sizeof(char*));
+        char** args_with_null = malloc(((unsigned long)args_size + 1) * (unsigned long)sizeof(char*)); 
         if (args_with_null == NULL) {
             perror("Error allocating memory for args_with_null");
+            for (int j = 0; j < args_size; j++) {
+                free(args[j]);
+            }
+            free(args);
+            for (int j = 0; j < parts_size; j++) {
+                free(parts[j]);
+            }
+            free(parts);
+            free(bach_commands);
             exit(EXIT_FAILURE);
         }
 
-        // Copy arguments
-        for (int j = 0; j < args_size; j++) {
-            args_with_null[j] = args[j];
+        int j = 0;
+        while (j < args_size) {
+            char *arg = args[j];
+            if (strcmp(arg, INPUT_TOKEN) == 0) {
+                FILE *input = fopen(args[j + 1], "r");
+                if (input == NULL) {
+                    perror("Error opening input file");
+                    for (int j = 0; j < args_size; j++) {
+                        free(args[j]);
+                    }
+                    free(args);
+                    for (int j = 0; j < parts_size; j++) {
+                        free(parts[j]);
+                    }
+                    free(parts);
+                    free(bach_commands);
+                    for (int j = 0; j < args_size+1; j++) {
+                        free(args_with_null[j]);
+                    }
+                    free(args_with_null);
+                    exit(EXIT_FAILURE);
+                }
+                bach_command->input = input;
+                j += 2;
+                free(arg);
+                free(args[j+1]);
+            }
+            else if (strcmp(arg, OUTPUT_TOKEN) == 0) {
+                FILE *output = fopen(args[j + 1], "w");
+                if (output == NULL) {
+                    perror("Error opening output file");
+                    for (int j = 0; j < args_size; j++) {
+                        free(args[j]);
+                    }
+                    free(args);
+                    for (int j = 0; j < parts_size; j++) {
+                        free(parts[j]);
+                    }
+                    free(parts);
+                    free(bach_commands);
+                    for (int j = 0; j < args_size+1; j++) {
+                        free(args_with_null[j]);
+                    }
+                    free(args_with_null);
+                    exit(EXIT_FAILURE);
+                }
+                bach_command->output = output;
+                j += 2;
+                free(arg);
+                free(args[j+1]);
+            }
+            else {
+                args_with_null[actual_args_size] = arg;
+                actual_args_size++;
+                j++;
+            }
         }
-        // Set the null terminator
-        args_with_null[args_size] = NULL;
 
         bach_command->name = args[0];
         bach_command->args = args_with_null;
@@ -177,6 +281,7 @@ PBachCommand* command_parser(char *line, int *size) {
         free(args);
     }
     *size = parts_size;
+    free(parts);
     return bach_commands;
 }
 
@@ -258,3 +363,4 @@ void trim(char* line) {
 
     return;
 }
+
