@@ -1,13 +1,19 @@
 #include "bach.h"
 #include <string.h>
+#include <signal.h>
 
 void run_bach(char* line);
 
+void sigint_handler(int sig) { 
+    printf("\n");
+}
+
 int main(int argc, char *argv[]) {
-    (void)argc; // Mark argc as unused
-    (void)argv; // Mark argv as unused
+    (void)argc;
+    (void)argv;
     while (TRUE)
     {
+		signal(SIGINT, sigint_handler);
         char line[MAX_LINE];
         printf("$: ");
         if(!fgets(line, MAX_LINE, stdin)) {
