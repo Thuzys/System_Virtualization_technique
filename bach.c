@@ -1,342 +1,28 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
-#include <sys/types.h>
-#include <fcntl.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <ctype.h>
 #include <sys/wait.h>
 
-#define MAX_LINE 1024
-#define MAX_ARGS 20
-#define TRUE 1
+#define MAX_COMMANDS 10
+#define MAX_ARGS 10
+#define MAX_ARG_LENGTH 100
+#define MAX_LINE_LENGTH 1000
 
-char *EMPTY_CHAR  = "/0";       
-char *OUTPUT_TOKEN = ">";     
-char *INPUT_TOKEN = "<";
-char *PIPE_TOKEN = "|";
-char *BLANK_CHAR = " ";
-
-/**
- * Struct to hold a simple command information.
- * The name of the command,
- * The arguments,
- */
 typedef struct bach_command_t {
     int num_args;
-    char *name;
-    char **args;
-    FILE *input;
-    FILE *output;
+    int input;
+    int output;
+    char name[MAX_ARG_LENGTH];
+    char args[MAX_ARGS][MAX_ARG_LENGTH];
 } BachCommand, *PBachCommand;
-// The size of the bach_command struct is 40 bytes
-
-// Functions signatures
-PBachCommand* command_parser(char *line, int *size);
-char** split(char* line, char* delim, int* size);
-void trim(char* line);
-void executecmd(PBachCommand cmd);
-void free_command(PBachCommand bach_command);
-void run_bach(char* line);
-
-// int main(int argc, char *argv[]) {
-//     (void)argc; // Mark argc as unused
-//     (void)argv; // Mark argv as unused
-//     while (TRUE)
-//     {
-//         char line[MAX_LINE];
-//         printf("$: ");
-//         if(!fgets(line, MAX_LINE, stdin)) {
-//             break;
-//         }
-//         if (strcmp(line, "exit\n") == 0) {
-//             break;
-//         }
-//         run_bach(line);
-//     }
-//     return 0;
-// }
-
-/**
- * Run bach commands
- * The function reads a line from the standard input
- * The function parses the line into bach_commands
- * The function executes the bach_commands
- * The function returns nothing
- */
-void run_bach(char* line) {
-    int size;
-    PBachCommand* bach_commands = command_parser(line, &size);
-    for (int i = 0; i < size; i++) {
-        PBachCommand bach_command = bach_commands[i];
-        executecmd(bach_command);
-    }
-    for (int i = 0; i < size; i++) {
-        free_command(bach_commands[i]);
-    }
-    free(bach_commands);
-    return;
-}
-
-/**
- * Free the memory allocated for a bach_command
- * The memory allocated for the name and the arguments is freed
- * The memory allocated for the bach_command is freed
- * The function does not return anything
- */
-void free_command(PBachCommand bach_command) {
-    for (int i = 0; i < bach_command->num_args; i++) {
-        free(bach_command->args[i]);
-    }
-    free(bach_command->args);
-    if (bach_command->input != NULL) {
-        fclose(bach_command->input);
-    }
-    if (bach_command->output != NULL) {
-        fclose(bach_command->output);
-    }
-    free(bach_command);
-    return;
-}
-
-/**
- * Execute a bach command
- * The command is executed in a child process
- * The parent process waits for the child to finish
- * The command is executed using execvp
- */
-void executecmd(PBachCommand cmd) {
-    int child_pid;
-    int saved_stdin = -1;
-    int saved_stdout = -1;
-
-    // Save the original file descriptors
-    if (cmd->input != NULL) {
-        saved_stdin = dup(STDIN_FILENO);
-        if (saved_stdin == -1) {
-            perror("dup");
-            exit(1);
-        }
-        dup2(fileno(cmd->input), STDIN_FILENO);
-    }
-
-    if (cmd->output != NULL) {
-        saved_stdout = dup(STDOUT_FILENO);
-        if (saved_stdout == -1) {
-            perror("dup");
-            exit(1);
-        }
-        dup2(fileno(cmd->output), STDOUT_FILENO);
-    }
-
-    if ((child_pid = fork()) == -1) {
-        perror("can't create new process");
-        exit(1);
-    } else if (child_pid == 0) {
-        if (execvp(cmd->name, cmd->args) == -1) {
-            perror("exec error");
-            exit(1);
-        }
-    } else {
-        waitpid(child_pid, NULL, 0);
-    }
-
-    // Restore the original file descriptors
-    if (cmd->input != NULL) {
-        dup2(saved_stdin, STDIN_FILENO);
-        close(saved_stdin);
-    }
-
-    if (cmd->output != NULL) {
-        dup2(saved_stdout, STDOUT_FILENO);
-        close(saved_stdout);
-    }
-
-    return;
-}
-
-/**
- * Parse a line of commands into an array of bach_commands
- * Returns the number of generated bach_commands on size parameter
- * Returns a pointer to the array of bach_commands
- * The bach_commands array should be freed after use
- */
-PBachCommand* command_parser(char *line, int *size) {
-    int parts_size;
-    char **parts = split(line, PIPE_TOKEN, &parts_size); // a malloc is done to allocate memory for the parts array // 3  -> 2
-    
-    // Allocate memory for the bach_commands array
-    PBachCommand* bach_commands = (PBachCommand*)malloc((unsigned long)parts_size * sizeof(PBachCommand)); // a malloc is done to allocate memory for the bach_commands array -> 3
-    if (bach_commands == NULL) {
-        perror("Error allocating memory for bach_commands");
-        for (int i = 0; i < parts_size; i++) {
-            free(parts[i]);
-        }
-        free(parts);
-        exit(EXIT_FAILURE);
-    }
-
-    for (int i = 0; i < parts_size; i++) {
-        
-        char* command = parts[i]; // command is a pointer to the parts array, with is malloced
-        int args_size;
-        char** args = split(command, BLANK_CHAR, &args_size); // malloc args; -> 8
-        free(command); // free the memory allocated for the command on the parts array -> 7
-        
-        // Allocate memory for the bach_command
-        PBachCommand bach_command = malloc(sizeof(BachCommand)); // -> 8
-        if (bach_command == NULL) {
-            perror("Error allocating memory for bach_command");
-            for (int j = 0; j < args_size; j++) {
-                free(args[j]);
-            }
-            free(args);
-            for (int j = 0; j < parts_size; j++) {
-                free(parts[j]);
-            }
-            free(parts);
-            free(bach_commands);
-            exit(EXIT_FAILURE);
-        }
-        
-        int actual_args_size = 0;
-        // Allocate memory for args with an extra slot for the null terminator
-        char** args_with_null = malloc(((unsigned long)args_size + 1) * (unsigned long)sizeof(char*)); 
-        if (args_with_null == NULL) {
-            perror("Error allocating memory for args_with_null");
-            for (int j = 0; j < args_size; j++) {
-                free(args[j]);
-            }
-            free(args);
-            for (int j = 0; j < parts_size; j++) {
-                free(parts[j]);
-            }
-            free(parts);
-            free(bach_commands);
-            exit(EXIT_FAILURE);
-        }
-
-        int j = 0;
-        while (j < args_size) {
-            char *arg = args[j];
-            if (strcmp(arg, INPUT_TOKEN) == 0) {
-                FILE *input = fopen(args[j + 1], "r");
-                if (input == NULL) {
-                    perror("Error opening input file");
-                    for (int j = 0; j < args_size; j++) {
-                        free(args[j]);
-                    }
-                    free(args);
-                    for (int j = 0; j < parts_size; j++) {
-                        free(parts[j]);
-                    }
-                    free(parts);
-                    free(bach_commands);
-                    for (int j = 0; j < args_size+1; j++) {
-                        free(args_with_null[j]);
-                    }
-                    free(args_with_null);
-                    exit(EXIT_FAILURE);
-                }
-                bach_command->input = input;
-                j += 2;
-                free(arg);
-                free(args[j+1]);
-            }
-            else if (strcmp(arg, OUTPUT_TOKEN) == 0) {
-                FILE *output = fopen(args[j + 1], "w");
-                if (output == NULL) {
-                    perror("Error opening output file");
-                    for (int j = 0; j < args_size; j++) {
-                        free(args[j]);
-                    }
-                    free(args);
-                    for (int j = 0; j < parts_size; j++) {
-                        free(parts[j]);
-                    }
-                    free(parts);
-                    free(bach_commands);
-                    for (int j = 0; j < args_size+1; j++) {
-                        free(args_with_null[j]);
-                    }
-                    free(args_with_null);
-                    exit(EXIT_FAILURE);
-                }
-                bach_command->output = output;
-                j += 2;
-                free(arg);
-                free(args[j+1]);
-            }
-            else {
-                args_with_null[actual_args_size] = arg;
-                actual_args_size++;
-                j++;
-            }
-        }
-
-        bach_command->name = args[0];
-        bach_command->args = args_with_null;
-        bach_command->num_args = args_size;
-        bach_commands[i] = bach_command;
-        free(args);
-    }
-    *size = parts_size;
-    free(parts);
-    return bach_commands;
-}
-
-/*
- * Split a string into parts using a delimiter
- * Returns the number of generated parts on size parameter
- * Retusns a pointer to the array of parts
- */
-char** split(char* line, char* delim, int* size) {
-    // Make a copy of the line to avoid modifying the original string
-    char* dupLine = strdup(line);
-    if (dupLine == NULL) {
-        perror("Error duplicating the line");
-        exit(EXIT_FAILURE);
-    }
-
-    char* token = strtok(dupLine, delim);
-    int parts_size = 0;
-    while (token != NULL) {
-        parts_size++;
-        token = strtok(NULL, delim);
-    }
-    
-    // Allocate memory for the parts array
-    char** parts = (char**)malloc((unsigned long)parts_size * sizeof(char*));
-    if (parts == NULL) {
-        perror("Error allocating memory for parts");
-        exit(EXIT_FAILURE);
-    }
-
-    strcpy(dupLine, line);
-    token = strtok(dupLine, delim);
-    *size = parts_size;
-    for (int i = 0; i < parts_size; i++) {
-        char* part = strdup(token); // Allocate memory for each token
-        if (part == NULL) {
-            perror("Error allocating memory for token");
-            // Free the allocated memory
-            for (int j = 0; j < i; j++) {
-                free(parts[j]);
-            }
-            free(parts);
-            free(dupLine);
-            exit(EXIT_FAILURE);
-        }
-        trim(part);
-        parts[i] = part;
-        token = strtok(NULL, delim);
-    }
-    free(dupLine);
-    return parts;
-}
 
 /**
  * Trim a string by removing leading and trailing whitespaces
+ * 
+ * @param line The string to be trimmed
  */
 void trim(char* line) {
     char* end;
@@ -364,3 +50,268 @@ void trim(char* line) {
     return;
 }
 
+/**
+ * Splits a given string into tokens based on a specified delimiter.
+ *
+ * @param str The input string to be split.
+ * @param delim The delimiter string used to split the input string.
+ * @param result An array to store the resulting tokens. Each token is stored as a string.
+ * @param size A pointer to an integer where the number of tokens found will be stored.
+ */
+void split(const char *str, const char *delim, char result[][MAX_ARG_LENGTH], int *size) {
+    char *token; 
+    char temp[MAX_LINE_LENGTH]; // Temporary array to store the input string
+    strncpy(temp, str, MAX_LINE_LENGTH); // Make a copy of the input string 
+    token = strtok(temp, delim);
+    *size = 0;
+    while (token != NULL && *size < MAX_ARGS) {
+        trim(token); // Trim leading and trailing whitespaces
+        strncpy(result[*size], token, MAX_ARG_LENGTH); 
+        token = strtok(NULL, delim); // Get the next token
+        (*size)++; // Increment the number of tokens found
+    }
+}
+
+
+/**
+ * Parses a command line string into a list of BachCommand structures.
+ *
+ * @param line The command line string to be parsed.
+ * @param bach_commands An array of BachCommand structures to store the parsed commands.
+ * @param size A pointer to an integer where the number of commands found will be stored.
+ */
+void command_parser(const char *line, PBachCommand bach_commands, int *size) {
+    // Split the input line into individual commands separated by '|'
+    char parts[MAX_COMMANDS][MAX_ARG_LENGTH];
+    int parts_size;
+    split(line, "|", parts, &parts_size);
+
+    // Set the number of commands found
+    *size = parts_size;
+
+    // Iterate over each command part
+    for (int i = 0; i < parts_size; i++) {
+        // Split each command part into arguments separated by spaces
+        char args[MAX_ARGS][MAX_ARG_LENGTH];
+        int args_size;
+        split(parts[i], " ", args, &args_size);
+
+        // Copy the command name (first argument) to the bach_commands array
+        strncpy(bach_commands[i].name, args[0], MAX_ARG_LENGTH);
+        int actual_args_size = 0;
+        bach_commands[i].input = 0;  // Initialize input file descriptor to 0 (standard input)
+        bach_commands[i].output = 0; // Initialize output file descriptor to 0 (standard output)
+        int j = 0;
+
+        // Iterate over the arguments to handle input/output redirection and store arguments
+        while (j < args_size) {
+            if (args[j][0] == '<') {
+                // Handle input redirection
+                bach_commands[i].input = open(args[j + 1], O_RDONLY);
+                if (bach_commands[i].input == -1) {
+                    perror("open");
+                    exit(1);
+                }
+                j += 2; // Skip the next argument as it is the input file
+            } else if (args[j][0] == '>') {
+                // Handle output redirection
+                bach_commands[i].output = open(args[j + 1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                if (bach_commands[i].output == -1) {
+                    perror("open");
+                    exit(1);
+                }
+                j += 2; // Skip the next argument as it is the output file
+            } else {
+                // Store the argument in the bach_commands array
+                strncpy(bach_commands[i].args[actual_args_size], args[j], MAX_ARG_LENGTH);
+                actual_args_size++;
+                j++;
+            }
+        }
+        // Null-terminate the arguments array
+        bach_commands[i].args[actual_args_size][0] = '\0';
+        bach_commands[i].num_args = actual_args_size; // Set the number of arguments
+    }
+}
+
+/**
+ * Executes a pipeline of commands not limited by 2 commands.
+ *
+ * @param cmd_list An array of BachCommand structures representing the commands in the pipeline.
+ * @param cmd_count The number of commands in the pipeline.
+ */
+void execute_pipeline_v2(PBachCommand cmd_list, int cmd_count) {
+    int pipe_fd[2];
+    int input_fd = 0; // Initially, the input is from the standard input
+    int child_pid;
+
+    for (int i = 0; i < cmd_count; i++) {
+        if (pipe(pipe_fd) == -1) { // create a pipe
+                perror("pipe");
+                exit(1);
+            }
+        if ((child_pid = fork()) == -1) { // fork a child process
+            perror("fork");
+            exit(1);
+        }
+        if (child_pid == 0) {
+            if (i == 0) { // if this is the first command
+                if (cmd_list[i].input != 0) {  // if the command has an input file
+                    dup2(cmd_list[i].input, STDIN_FILENO); // set the input to the input file
+                    close(cmd_list[i].input);
+                }
+            } else {
+                dup2(input_fd, STDIN_FILENO); // set the input to the previous command's output
+                close(input_fd);
+            }
+            if (i < cmd_count - 1) { // if this is not the last command
+                dup2(pipe_fd[1], STDOUT_FILENO); // set the output to the write end of the pipe
+            } else { //if this is the last command
+                if (cmd_list[i].output != 0) { // if the command has an output file
+                    dup2(cmd_list[i].output, STDOUT_FILENO); //set the output to the standard output
+                    close(cmd_list[i].output);
+                }
+            }
+            close(pipe_fd[0]); // close the read end of the pipe
+            char *args[MAX_ARGS + 1];  // create an array of arguments
+            for (int j = 0; j < cmd_list[i].num_args; j++) {
+                args[j] = cmd_list[i].args[j];
+            }
+            args[cmd_list[i].num_args] = NULL;
+            execvp(cmd_list[i].name, args); // execute the command
+            perror("execvp");
+            exit(1);
+        } else {
+            waitpid(child_pid, NULL, 0); // wait for the child process to finish
+            close(pipe_fd[1]);
+            input_fd = pipe_fd[0];
+        }
+    }
+}
+
+/**
+ * Executes a pipeline of commands limited to 2 commands.
+ *
+ * @param cmd_list An array of BachCommand structures representing the commands in the pipeline.
+ * @param cmd_count The number of commands in the pipeline.
+ */
+void execute_pipeline(PBachCommand cmd_list, int cmd_count) {
+    int pipe_fd[2];
+    int input_fd = 0; // Initially, the input is from the standard input
+    int child_pid;
+
+    child_pid = fork(); // fork a child process
+    if (child_pid == -1) { // check for fork error
+        perror("fork");
+        exit(1);
+    } 
+    if (child_pid == 0) { // if this is the child process
+        if (pipe(pipe_fd) == -1) {
+            perror("pipe");
+            exit(1);
+        }
+        int second_child_pid = fork(); // fork another child process
+        if (second_child_pid == -1) { // check for fork error
+            perror("fork");
+            exit(1);
+        }
+        if (second_child_pid == 0) {
+            dup2(pipe_fd[0], STDIN_FILENO); // set the input to the previous command's output
+            close(pipe_fd[0]); // close the previous command's output
+            close(pipe_fd[1]); // close the write end of the pipe
+            if (cmd_list[cmd_count - 1].output != 0) {
+                dup2(cmd_list[cmd_count - 1].output, STDOUT_FILENO);
+                close(cmd_list[cmd_count - 1].output);
+            }
+            char *args[MAX_ARGS + 1];
+            for (int j = 0; j < cmd_list[1].num_args; j++) {
+                args[j] = cmd_list[1].args[j];
+            }
+            args[cmd_list[1].num_args] = NULL;
+            execvp(cmd_list[1].name, args); // execute the command
+            perror("execvp");
+            exit(1);
+        } else {
+            dup2(pipe_fd[1], STDOUT_FILENO); // set the output to the next command's input
+            close(pipe_fd[0]); // close the read end of the pipe
+            close(pipe_fd[1]); // close the write end of the pipe
+            if (cmd_list[0].input != 0) {
+                dup2(cmd_list[0].input, STDIN_FILENO);
+                close(cmd_list[0].input);
+            }
+            char *args[MAX_ARGS + 1]; 
+            for (int j = 0; j < cmd_list[0].num_args; j++) {
+                args[j] = cmd_list[0].args[j];
+            }
+            args[cmd_list[0].num_args] = NULL;
+            execvp(cmd_list[0].name, args); // execute the command
+            perror("execvp");
+            exit(1);
+        }
+    } else {
+        waitpid(child_pid, NULL, 0); // wait for the child process to finish
+    }
+}
+
+/**
+ * Executes a simple command that is not part of a pipeline.
+ *
+ * @param cmd The BachCommand structure representing the command to be executed.
+ */
+void execute_simple_cmd(BachCommand cmd) {
+    int child_pid;
+
+    if (strcmp(cmd.name, "cd") == 0) { // check if the command is 'cd'
+        if (cmd.num_args < 1) {
+            fprintf(stderr, "cd: missing argument\n");
+        } else {
+            if (chdir(cmd.args[1]) != 0) {
+                perror("cd");
+            }
+        }
+        return;
+    }
+
+    if ((child_pid = fork()) == 0) {
+        if (cmd.input != 0) { // if the command has an input file
+            dup2(cmd.input, STDIN_FILENO);
+            close(cmd.input);
+        }
+        if (cmd.output != 0) { // if the command has an output file
+            dup2(cmd.output, STDOUT_FILENO);
+            close(cmd.output);
+        }
+        char *args[MAX_ARGS + 1];
+        for (int i = 0; i < cmd.num_args; i++) {
+            args[i] = cmd.args[i];
+        }
+        args[cmd.num_args] = NULL;
+        execvp(cmd.name, args); // execute the command
+        perror("execvp");
+        exit(1);
+    } else if (child_pid == -1) { 
+        perror("fork");
+    } else {
+        waitpid(child_pid, NULL, 0); // wait for the child process to finish
+    }
+}
+
+/**
+ * Executes a command line string in the Bach shell.
+ *
+ * @param line The command line string to be executed.
+ */
+void run_bach(char* line) {
+    BachCommand bach_commands[MAX_COMMANDS]; // array to store the commands
+    int size; // number of commands found
+
+    command_parser(line, bach_commands, &size); // parse the command line
+
+    if (size == 1) { // if there is only one command
+        execute_simple_cmd(bach_commands[0]);
+        return;
+    }
+    else { // if there are multiple commands
+        execute_pipeline_v2(bach_commands, size);
+    }
+}

@@ -5,21 +5,22 @@
 #include <stdlib.h>
 
 #define MAX_LINE 1024
-#define PIPE_TOKEN "|"
+#define MAX_ARGS 10
+#define MAX_ARG_LENGTH 100
 #define TRUE 1
 
 // Define the PBachCommand type and any other necessary types
-typedef struct {
-    char* name;
-    char** args;
+typedef struct bach_command_t {
     int num_args;
+    char name[MAX_ARG_LENGTH];
+    char args[MAX_ARGS][MAX_ARG_LENGTH];
+    FILE *input;
+    FILE *output;
 } BachCommand, *PBachCommand;
 
 // Function prototypes
-PBachCommand* command_parser(char *line, int *size);
-void executecmd(PBachCommand cmd);
-char** split(char* line, char* delim, int* size);
-void free_command(PBachCommand cmd);
+void execute_cmd(BachCommand cmd);
+void command_parser(const char *line, PBachCommand bach_commands, int *size);
 void run_bach(char* line);
 
 #endif // BACH_H
