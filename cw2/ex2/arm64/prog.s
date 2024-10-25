@@ -9,41 +9,41 @@ data:   .byte  47, 101, 116,  99
         .text
         .globl _start
 _start:
-        mov x?, #-100
-        ldr x?, =data
-        mov x?, #0
-        mov w8, #??
+        mov x0, #-100
+        ldr x1, =data
+        mov x2, #0
+        mov w8, #56
         svc #0
 
         mov x21, x0
 
-        mov x?, #2
-        mov x?, #0
-        mov x?, x21
-        mov w8, #??
+        mov x2, #2
+        mov x1, #0
+        mov x0, x21
+        mov w8, #62
         svc #0
 
         mov x20, x0
 
-        mov x?, #0
-        mov x?, #0
-        mov x?, #1
-        mov x?, #2
-        mov x?, x20
-        mov x?, x21
-        mov w8, #??
+        mov x0, #0
+        mov x5, #0
+        mov x2, #1
+        mov x3, #2
+        mov x1, x20
+        mov x4, x21
+        mov w8, #222
         svc #0
 
         mov x19, x0
 
-        mov x?, x19
-        mov x?, x20
-        mov x?, #1
-        mov w8, #??
+        mov x1, x19
+        mov x2, x20
+        mov x0, #1
+        mov w8, #64
         svc #0
 
-        mov x?, #0
-        mov w8, #??
+        mov x0, #0
+        mov w8, #94
         svc #0
 
         .end
