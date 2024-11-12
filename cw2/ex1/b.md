@@ -19,5 +19,5 @@
 
 <!-- Write your answer here, along with the reasoning behind it. -->
 - O range de endereços canónicos para o novo espaço de endereçamento virtual de 512 PB seria:
-    - 0x0000_0000_0000_0000 a 0x7FFF_FFFF_FFFF_FFFF (bits 59 a 63 a 0)
-    - 0xFC00_0000_0000_0000 a 0xFFFF_FFFF_FFFF_FFFF (bits 59 a 63 a 1)
+    - 0x0000_0000_0000_0000 a 0x7FFF_FFFF_FFFF_FFFF (bits 59 a 63 igual a 0)
+    - 0xFC00_0000_0000_0000 a 0xFFFF_FFFF_FFFF_FFFF (bits 59 a 63 igual a 1)

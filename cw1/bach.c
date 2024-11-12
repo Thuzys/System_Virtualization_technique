@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <ctype.h>
+#include <stdbool.h>
 #include <sys/wait.h>
 
 #define MAX_COMMANDS 10
@@ -51,6 +52,20 @@ void trim(char* line) {
 }
 
 /**
+ * Check if a given string is a blank line.
+ * 
+ * @param line The string to be checked
+ */
+bool is_blank_line(const char *line) {
+    for (int i = 0; i < strlen(line); i++) {
+        if (!isspace(line[i])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
  * Splits a given string into tokens based on a specified delimiter.
  *
  * @param str The input string to be split.
@@ -65,6 +80,10 @@ void split(const char *str, const char *delim, char result[][MAX_ARG_LENGTH], in
     token = strtok(temp, delim);
     *size = 0;
     while (token != NULL && *size < MAX_ARGS) {
+        if (is_blank_line(token)) {
+            token = strtok(NULL, delim);
+            continue;
+        }
         trim(token); // Trim leading and trailing whitespaces
         strncpy(result[*size], token, MAX_ARG_LENGTH); 
         token = strtok(NULL, delim); // Get the next token
@@ -128,8 +147,6 @@ void command_parser(const char *line, PBachCommand bach_commands, int *size) {
                 j++;
             }
         }
-        // Null-terminate the arguments array
-        bach_commands[i].args[actual_args_size][0] = '\0';
         bach_commands[i].num_args = actual_args_size; // Set the number of arguments
     }
 }
@@ -182,10 +199,13 @@ void execute_pipeline_v2(PBachCommand cmd_list, int cmd_count) {
             perror("execvp");
             exit(1);
         } else {
-            waitpid(child_pid, NULL, 0); // wait for the child process to finish
             close(pipe_fd[1]);
             input_fd = pipe_fd[0];
+            // waitpid(child_pid, NULL, 0); // wait for the child process to finish
         }
+    }
+    for (int i = 0; i < cmd_count; i++) {
+        wait(NULL); // wait for all child processes to finish
     }
 }
 
@@ -306,7 +326,9 @@ void run_bach(char* line) {
     int size; // number of commands found
 
     command_parser(line, bach_commands, &size); // parse the command line
-
+    if (size == 0) { // if there are no commands
+        return;
+    }
     if (size == 1) { // if there is only one command
         execute_simple_cmd(bach_commands[0]);
         return;

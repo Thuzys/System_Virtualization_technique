@@ -3,7 +3,9 @@
 void run_bach(char* line);
 
 int main(int argc, char *argv[]) {
-    char *line = "echo hello world";
+    (void)argc;
+    (void)argv;
+    char *line = "";
     run_bach(line);
     return 0;
 }
