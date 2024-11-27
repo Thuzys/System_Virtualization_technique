@@ -62,6 +62,7 @@ else
     exit 1
 fi
 
+
 sudo cp -r ./ex1/* $TVSD_DIR/bin/scripts
 
 echo "Installation complete"
