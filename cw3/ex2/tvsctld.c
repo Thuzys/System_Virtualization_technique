@@ -78,6 +78,23 @@ void process_connection(int cfd) {
         char command[COMMAND_BUFFER_SIZE];
         char params[PARAMS_BUFFER_SIZE] = "";
         sscanf(buffer, "%s %[^\n]", command, params); // parse command and parameters
+        // Use strcmp to compare strings
+        if (strcmp(command, "reset") == 0) {
+            snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/scripts/reset.sh %s", params);
+        } else if (strcmp(command, "inc") == 0) {
+            snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/scripts/inc.sh %s", params);
+        } else if (strcmp(command, "stop") == 0) {
+            snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/scripts/stop.sh %s", params);
+        } else if (strcmp(command, "start") == 0) {
+            snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/scripts/start.sh %s", params);
+        } else if (strcmp(command, "dec") == 0) {
+            snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/scripts/dec.sh %s", params);
+        } else if (strcmp(command, "status") == 0) {
+            snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/scripts/status.sh %s", params);
+        } else {
+            syslog(LOG_ERR, "Unknown command: %s", command);
+            continue;
+        }
         switch (command) {
         case "reset":
             snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/scripts/reset.sh %s", params);
@@ -175,7 +192,7 @@ int main(int argc, char *argv[]) {
 
     int nfd = sd_listen_fds(0); // detect socket activzation
     if (nfd != 1) { // check if number of file descriptors is not 1
-        syslog(LOG_ERR, "Invalid number of file descriptors: %d", nfd);
+        syslog(LOG_ERR, "Invalid number of file descriptors: %d", nfd); // log error
         exit(EXIT_FAILURE); // exit with failure
     }
 
