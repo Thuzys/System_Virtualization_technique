@@ -95,13 +95,15 @@ int main(int argc, char *argv[]) {
             strcat(request, " ");
         }
     }
-
-    for (int try=1; try <= NITERS; try++) {
-        write(cli_sock, request, strlen(request)); // write request to socket
-        printf("Sent request: %s\n", request); // print request
-        read(cli_sock, request, REQUEST_BUFFER_SIZE); // read response from socket
-        printf("Received response: %s\n", request); // print response
-    }
+        
+	write(cli_sock, request, strlen(request)); // write request to socket
+	printf("Sent request: %s\n", request); // print request
+	read(cli_sock, request, REQUEST_BUFFER_SIZE); // read response from socket
+	printf("Received response: %s\n", request); // print response
+	read(cli_sock, request, REQUEST_BUFFER_SIZE); // read response from socket
+	printf("Received response: %s\n", request); // print response
+	read(cli_sock, request, REQUEST_BUFFER_SIZE); // read response from socket
+	printf("Received response: %s\n", request); // print response
     printf("Client %d done\n", pid); // print client done
     close(cli_sock); // close socket
     

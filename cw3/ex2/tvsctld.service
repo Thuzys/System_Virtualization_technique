@@ -1,11 +1,10 @@
 [Unit]
 Description=Tvsapp service
-Requires=tvsctld.socket
 After=syslog.service 
 
 [Service]
 Type=simple
-ExecStart=/opt/isel/tvs/tvsctld
+ExecStart=/opt/isel/tvs/tvsctld/tvsctld
 User=isel
 Group=tvsgrp
 Restart=on-failure

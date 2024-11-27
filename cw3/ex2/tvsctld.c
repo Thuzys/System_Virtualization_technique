@@ -29,7 +29,6 @@ volatile bool interrupted = false;
 int srv_sock;
 
 // signal handler
-
 /**
  * Signal handler for SIGTERM
  * 
@@ -73,69 +72,78 @@ void process_connection(int cfd) {
     // Read the request from the client
     while ((num_read = read(cfd, buffer, sizeof(buffer) - 1)) > 0) {
         buffer[num_read] = '\0'; // Null-terminate the string
-        char cmd[CMD_BUFFER_SIZE]; // command buffer
-        // Parse the command and parameters
-        char command[COMMAND_BUFFER_SIZE];
-        char params[PARAMS_BUFFER_SIZE] = "";
-        sscanf(buffer, "%s %[^\n]", command, params); // parse command and parameters
-        // Use strcmp to compare strings
+        
+        // Log the received message for debugging
+        syslog(LOG_INFO, "Received message: %s", buffer); // Log to syslog
+        
+        // Declare buffers for command and parameters
+        char cmd[CMD_BUFFER_SIZE];  // Command buffer
+        char command[COMMAND_BUFFER_SIZE]; // Command name
+        char params[PARAMS_BUFFER_SIZE] = ""; // Parameters buffer
+
+        // Use strtok to split the buffer into command and parameters
+        char *token = strtok(buffer, " ");  // Get the command
+        
+        if (token != NULL) {
+            strncpy(command, token, sizeof(command) - 1);  // Store the command
+            command[sizeof(command) - 1] = '\0';  // Null-terminate command
+        }
+
+        // If there's a space after the command, the parameters follow
+        token = strtok(NULL, " ");  // Get the first parameter
+        if (token != NULL) {
+            strncpy(params, token, sizeof(params) - 1);  // Store the parameters
+            params[sizeof(params) - 1] = '\0';  // Null-terminate parameters
+        }
+
+        // Log the command and parameters for debugging
+        syslog(LOG_INFO, "Command: %s, Parameters: %s", command, params);
+		
+        // Construct the command based on the request
         if (strcmp(command, "reset") == 0) {
-            snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/scripts/reset.sh %s", params);
-        } else if (strcmp(command, "inc") == 0) {
-            snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/scripts/inc.sh %s", params);
-        } else if (strcmp(command, "stop") == 0) {
-            snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/scripts/stop.sh %s", params);
-        } else if (strcmp(command, "start") == 0) {
-            snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/scripts/start.sh %s", params);
-        } else if (strcmp(command, "dec") == 0) {
-            snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/scripts/dec.sh %s", params);
-        } else if (strcmp(command, "status") == 0) {
-            snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/scripts/status.sh %s", params);
+            snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/tvsctld/bin/scripts/tvsapp-reset.sh -s %s", params);
         } else {
             syslog(LOG_ERR, "Unknown command: %s", command);
-            continue;
+            write(cfd, "Unknown command\n", 16);
+            continue;  // Skip unknown commands
         }
-        switch (command) {
-        case "reset":
-            snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/scripts/reset.sh %s", params);
-            break;
-        case "inc":
-            snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/scripts/inc.sh %s", params);
-            break;
-        case "stop":
-            snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/scripts/stop.sh %s", params);
-            break;
-        case "start":
-            snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/scripts/start.sh %s", params);
-            break;
-        case "dec":
-            snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/scripts/dec.sh %s", params);
-            break;
-        case "status":
-            snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/scripts/status.sh %s", params);
-            break;
-        default:
-            break;
+
+        // Fork a child process to execute the command
+        int child_pid = fork();
+        if (child_pid == -1) {
+            perror("fork");
+            write(cfd, "Forking failed\n", 15);
+            close(cfd);
+            return;
         }
-        int child_pid = fork(); // fork process
-        if (child_pid == -1) { // check if child process is valid
-            perror("fork"); // print error
-            close(cfd); // close client socket
-            return; // return
-        }
-        if (child_pid == 0) { // check if child process
-            // Redirect the standard input to the client socket
-            if (dup2(cfd, STDOUT_FILENO) == -1) { // duplicate file descriptor
-                perror("dup2"); // print error
-                close(cfd); // close client socket
-                exit(EXIT_FAILURE); // exit with failure
+
+        if (child_pid == 0) {  // Child process
+            // Redirect the output of the command to the client socket
+            if (dup2(cfd, STDOUT_FILENO) == -1) {
+                perror("dup2");
+                close(cfd);
+                exit(EXIT_FAILURE);
             }
+
             // Execute the command
-            system(cmd); // execute command
+            int result = system(cmd);
+            if (result != 0) {
+                write(cfd, "Command execution failed\n", 24);
+            } else {
+                write(cfd, "Command executed successfully\n", 30);
+            }
+
+            exit(EXIT_SUCCESS);  // Exit child process after command execution
         }
     }
-    wait(NULL); // wait for child process
-    close(cfd); // close client socket
+
+    // Handle read error
+    if (num_read == -1) {
+        perror("read");
+        write(cfd, "Error reading data\n", 19);
+    }
+
+    close(cfd);  // Close the client socket
 }
 
 /**
@@ -189,8 +197,7 @@ int main(int argc, char *argv[]) {
     init();
 
     // sd_listen_fds(0) is used to detect socket activation
-
-    int nfd = sd_listen_fds(0); // detect socket activzation
+    int nfd = sd_listen_fds(0); // detect socket activation
     if (nfd != 1) { // check if number of file descriptors is not 1
         syslog(LOG_ERR, "Invalid number of file descriptors: %d", nfd); // log error
         exit(EXIT_FAILURE); // exit with failure
