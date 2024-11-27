@@ -11,7 +11,7 @@ files=(
 )
 
 # Target directory
-target_directory="/opt/isel/tvsctld/bin/scripts"
+target_directory="/opt/isel/tvs/tvsctld/bin/scripts"
 
 # Check if the target directory exists
 if [ ! -d "$target_directory" ]; then
