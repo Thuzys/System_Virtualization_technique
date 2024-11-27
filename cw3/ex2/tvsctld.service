@@ -1,0 +1,16 @@
+[Unit]
+Description=Tvsapp service
+Requires=tvsctld.socket
+After=syslog.service 
+
+[Service]
+Type=simple
+ExecStart=/opt/isel/tvs/tvsctld
+User=isel
+Group=tvsgrp
+Restart=on-failure
+
+RestrictAddressFamilies=AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

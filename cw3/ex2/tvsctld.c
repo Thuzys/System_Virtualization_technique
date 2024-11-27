@@ -1,7 +1,7 @@
-#include <stdlib.h> // standard library
 #include <stdio.h> // standard input/output
 #include <string.h> // string operations
 #include <unistd.h> // standard symbolic constants and types
+#include <stdlib.h> // standard library
 #include <errno.h> // system error numbers
 #include <sys/socket.h> // main sockets header
 #include <syslog.h> // system logging
@@ -10,6 +10,7 @@
 #include <stdbool.h> // boolean types
 #include <fcntl.h> // file control options
 #include <pthread.h> // POSIX threads
+#include <systemd/sd-daemon.h> // socket activation
 #include "services.h" // services header
 
 // constants
@@ -40,102 +41,121 @@ void sig_term_handler(int signum) {
 }
 
 /**
+ * Initialize log
+ * 
+ * @return void
+ */
+void init_log() {
+    openlog(SERVER_NAME, LOG_PID, LOG_DAEMON); // open system log
+}
+
+/**
  * Initialize signal handler
  * 
  * @return void
  */
 void init() {
+    init_log(); // initialize log
     signal(SIGTERM, sig_term_handler); // register signal handler
 }
 
 /**
- * Handle client
+ * Process connection
  * 
- * @param client_sock client socket
+ * @param cfd client socket
  * @return void
  */
-void handle_client(int client_sock) {
+void process_connection(int cfd) {
     char buffer[COMUNICATION_BUFFER_SIZE];
     ssize_t num_read;
 
     // Read the request from the client
-    num_read = read(client_sock, buffer, sizeof(buffer) - 1);
-    if (num_read > 0) {
+    while ((num_read = read(cfd, buffer, sizeof(buffer) - 1)) > 0) {
         buffer[num_read] = '\0'; // Null-terminate the string
-
+        char cmd[CMD_BUFFER_SIZE]; // command buffer
         // Parse the command and parameters
         char command[COMMAND_BUFFER_SIZE];
         char params[PARAMS_BUFFER_SIZE] = "";
-        sscanf(buffer, "%s %[^\n]", command, params);
-
-        // Construct the command string to be executed
-        char cmd[CMD_BUFFER_SIZE];
-        if (strcmp(command, "reset") == 0) {
+        sscanf(buffer, "%s %[^\n]", command, params); // parse command and parameters
+        switch (command) {
+        case "reset":
             snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/scripts/reset.sh %s", params);
-        } else if (strcmp(command, "inc") == 0) {
+            break;
+        case "inc":
             snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/scripts/inc.sh %s", params);
-        } else if (strcmp(command, "stop") == 0) {
+            break;
+        case "stop":
             snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/scripts/stop.sh %s", params);
-        } else if (strcmp(command, "start") == 0) {
+            break;
+        case "start":
             snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/scripts/start.sh %s", params);
-        } else if (strcmp(command, "dec") == 0) {
+            break;
+        case "dec":
             snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/scripts/dec.sh %s", params);
-        } else if (strcmp(command, "status") == 0) {
+            break;
+        case "status":
             snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/scripts/status.sh %s", params);
-        } else {
-            syslog(LOG_ERR, "Unknown command: %s", buffer);
-            close(client_sock);
-            return;
+            break;
+        default:
+            break;
         }
-
-        // Execute the command
-        system(cmd);
+        int child_pid = fork(); // fork process
+        if (child_pid == -1) { // check if child process is valid
+            perror("fork"); // print error
+            close(cfd); // close client socket
+            return; // return
+        }
+        if (child_pid == 0) { // check if child process
+            // Redirect the standard input to the client socket
+            if (dup2(cfd, STDOUT_FILENO) == -1) { // duplicate file descriptor
+                perror("dup2"); // print error
+                close(cfd); // close client socket
+                exit(EXIT_FAILURE); // exit with failure
+            }
+            // Execute the command
+            system(cmd); // execute command
+        }
     }
-
-    close(client_sock);
+    wait(NULL); // wait for child process
+    close(cfd); // close client socket
 }
 
 /**
- * Create bind socket
+ * Dispatch connection
  * 
- * @param sock_name socket name
- * 
- * @return integer
+ * @param arg argument
+ * @return void
  */
-int create_bind_socket(const char* sock_name) {
-    int sock; // socket
-    struct sockaddr_un addr; // address
-    sock = socket(AF_UNIX, SOCK_STREAM, 0); // create socket
-    if (sock == -1) { // check if socket is valid
-        perror("socket"); // print error
-        return -1;
-    }
-    // remove old socket if exists
-    if (unlink(sock_name) == -1 && errno != ENOENT) {
-        perror("unlink"); // print error
-        close(sock); // close socket
-        return -2;
-    }
+void* dispatch_connection(void* arg) {
+    int cfd = *(int*)arg; // client socket
+    process_connection(cfd); // process connection
+    return NULL; // return null
+}
 
-    // bind socket
-    memset(&addr, 0, sizeof(struct sockaddr_un)); // clear address
-    addr.sun_family = AF_UNIX; // set address family
-    strncpy(addr.sun_path, sock_name, sizeof(addr.sun_path) - 1); // copy socket name
-
-    if (bind(sock, (struct sockaddr*)&addr, sizeof(struct sockaddr_un)) == -1) { // bind socket
-        perror("bind"); // print error
-        close(sock); // close socket
-        return -3;
+/**
+ * Run server
+ * 
+ * @return void
+ */
+void run() {
+    int client_sock; // client socket
+    syslog(LOG_INFO, "Server started"); // log server start
+    while (!interrupted) { // check if interrupted
+        struct sockaddr_un client_addr; // client address
+        socklen_t client_addr_len = sizeof(struct sockaddr_un); // client address length
+        client_sock = accept(srv_sock, (struct sockaddr*)&client_addr, &client_addr_len); // accept client
+        if (interrupted) { // check if interrupted
+            break; // break loop
+        }
+        if (client_sock == -1) { // check if client socket is valid
+            perror("accept"); // print error
+            continue; // continue loop
+        }
+        pthread_t thread; // thread
+        pthread_create(&thread, NULL, dispatch_connection, &client_sock); // create thread
+        pthread_detach(thread); // detach thread
     }
-
-    // set listen queue size
-    if (listen(sock, BACKLOG) == -1) { // listen
-        perror("listen"); // print error
-        close(sock); // close socket
-        return -4;
-    }
-
-    return sock; // return socket
+    syslog(LOG_INFO, "Server stopped"); // log server stop
 }
 
 /**
@@ -147,35 +167,21 @@ int create_bind_socket(const char* sock_name) {
  * @return integer
  */
 int main(int argc, char *argv[]) {
-    int sock, client_sock; // socket, client socket
-    struct sockaddr_un client_addr; // client address
-    socklen_t client_addr_len = sizeof(struct sockaddr_un); // client address length
-
-    // Initialize signal handler
+    // Initialize the server and signal handler
     init();
 
-    // Open the system log
-    openlog(SERVER_NAME, LOG_PID, LOG_DAEMON);
+    // sd_listen_fds(0) is used to detect socket activation
 
-    sock = create_bind_socket(SOCKET_PATH); // create and bind socket
-    if (sock == -1) { // check if socket is valid
-        syslog(LOG_ERR, "Failed to create and bind socket");
+    int nfd = sd_litsten_fds(0); // detect socket activzation
+    if (nfd != 1) { // check if number of file descriptors is not 1
+        syslog(LOG_ERR, "Invalid number of file descriptors: %d", nfds);
         exit(EXIT_FAILURE); // exit with failure
     }
 
-    while (true)
-    {
-        if (interrupted) { // check if interrupted
-            break; // break loop
-        }
-        client_sock = accept(sock, (struct sockaddr*)&client_addr, &client_addr_len); // accept client
-        if (client_sock == -1) { // check if client socket is valid 
-            perror("accept"); // print error
-            continue; // continue loop   
-        }
-        handle_client(client_sock); // handle client
-    }
-    close(sock); // close socket
+    srv_sock = SD_LISTEN_FDS_START; // get server socket
+
+    run(); // run server
+
+    close(srv_sock); // close socket
     closelog(); // close system log
-    exit(EXIT_SUCCESS); // exit with success
 }
