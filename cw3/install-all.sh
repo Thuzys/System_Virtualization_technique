@@ -69,7 +69,5 @@ else
     echo "tvsapp-setup.sh not found!"
     exit 1
 fi
-./ex1/tvsapp-setup.sh
-
 
 echo "Installation complete"
