@@ -62,6 +62,7 @@ else
     exit 1
 fi
 
+
 # Call the tvsapp-setup.sh script
 if [ -f ./ex1/tvsapp-setup.sh ]; then
     ./ex1/tvsapp-setup.sh
