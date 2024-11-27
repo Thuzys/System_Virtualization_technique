@@ -2,7 +2,7 @@
 
 # Default values
 ports_file="/tmp/tvsapp_ports.txt"
-config_file="tvsapp"
+config_file="tvsapp.conf"
 elasticsearch_service="elasticsearch"
 nginx_sites_available="/etc/nginx/sites-available/"
 nginx_sites_enabled="/etc/nginx/sites-enabled/"

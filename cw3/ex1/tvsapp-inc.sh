@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Default values for base, delta, and config file
-config_file="tvsapp"
+config_file="tvsapp.conf" 
 target_directory="/etc/nginx/sites-available/"
 ports_file="/tmp/tvsapp_ports.txt"
 delta=1  # Default to 1 instance if no delta is provided
@@ -32,6 +32,12 @@ fi
 # Calculate the new ports based on delta
 echo "Adding $delta new instance(s) starting from port $((last_port + 1))"
 
+# Ensure that config_file is not a directory
+if [ -d "$config_file" ]; then
+  echo "Error: $config_file is a directory, not a file."
+  exit 1
+fi
+
 # Start creating the configuration file
 echo "upstream tvsapp {" > "$config_file"
 
@@ -54,7 +60,6 @@ for (( i=0; i<delta; i++ )); do
   if ! grep -q "^$port$" "$ports_file"; then
     echo "$port" >> "$ports_file"
   fi
-
 done
 
 # End the upstream block
@@ -75,7 +80,7 @@ EOL
 
 echo "Nginx config generated successfully at $config_file."
 
-# Check if the script is being run as root; if not, use sudo to copy the file
+# Ensure proper copying to the target directory
 if [ "$EUID" -eq 0 ]; then
   if [ ! -d "$target_directory" ]; then
     echo "Error: Target directory $target_directory does not exist."
@@ -87,7 +92,7 @@ if [ "$EUID" -eq 0 ]; then
     exit 1
   fi
 
-  # Optionally create a symbolic link in sites-enabled
+  # Create symbolic link
   if [ ! -L "/etc/nginx/sites-enabled/tvsapp" ]; then
     ln -s "$target_directory$config_file" /etc/nginx/sites-enabled/
     echo "Symbolic link created in /etc/nginx/sites-enabled/"
@@ -111,10 +116,10 @@ fi
 
 if systemctl is-active --quiet nginx; then
   echo "Reloading Nginx configuration..."  
-  if [ -f "./tvsapp-start.sh" ]; then
-    ./tvs-stop.sh
+  if [ -f "/opt/isel/tvs/tvsctld/bin/scripts/tvsapp-start.sh" ]; then
+    sudo bash /opt/isel/tvs/tvsctld/bin/scripts/tvsapp-start.sh
   else
-    echo "Error: tvs-stop.sh script not found."
+    echo "Error: tvsapp-start.sh script not found."
     exit 1
   fi
 fi

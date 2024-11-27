@@ -85,8 +85,6 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    int pid = getpid(); // get process id
-
     // Construct the request string
     char request[REQUEST_BUFFER_SIZE] = {0};
     for (int i = 1; i < argc; i++) {
@@ -100,6 +98,9 @@ int main(int argc, char *argv[]) {
 	write(cli_sock, request, strlen(request)); // write request to socket
     char response[REQUEST_BUFFER_SIZE] = {0};
     while (read(cli_sock, response, REQUEST_BUFFER_SIZE) > 0) {
+		if ((strcmp(response, FINAL_MESSAGE) == 0)) {
+			break;
+		}
         printf("Received response: %s\n", response);
         memset(response, 0, REQUEST_BUFFER_SIZE); // clear the response buffer
     }

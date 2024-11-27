@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Default values for config file and ports file
-config_file="tvsapp"
+config_file="tvsapp.conf"
 target_directory="/etc/nginx/sites-available/"
 ports_file="/tmp/tvsapp_ports.txt"
 delta=1  # Default to removing 1 instance if no delta is provided
@@ -109,10 +109,10 @@ fi
 
 if systemctl is-active --quiet nginx; then
   echo "Reloading Nginx configuration..."  
-  if [ -f "./tvsapp-start.sh" ]; then
-    ./tvs-stop.sh
+  if [ -f "/opt/isel/tvs/tvsctld/bin/scripts/tvsapp-start.sh" ]; then
+    sudo bash /opt/isel/tvs/tvsctld/bin/scripts/tvsapp-start.sh
   else
-    echo "Error: tvs-stop.sh script not found."
+    echo "Error: tvsapp-start.sh script not found."
     exit 1
   fi
 fi

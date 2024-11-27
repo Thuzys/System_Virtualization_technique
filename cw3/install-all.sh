@@ -62,12 +62,6 @@ else
     exit 1
 fi
 
-# Call the tvsapp-setup.sh script
-if [ -f ./ex1/tvsapp-setup.sh ]; then
-    ./ex1/tvsapp-setup.sh
-else
-    echo "tvsapp-setup.sh not found!"
-    exit 1
-fi
+sudo cp -r ./ex1/* $TVSD_DIR/bin/scripts
 
 echo "Installation complete"

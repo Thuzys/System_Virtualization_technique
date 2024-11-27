@@ -5,7 +5,7 @@ ports_file="/tmp/tvsapp_ports.txt"
 elasticsearch_service="elasticsearch"
 nginx_service="nginx"
 nginx_sites_enabled="/etc/nginx/sites-enabled/"
-config_file="tvsapp"
+config_file="tvsapp.conf"
 
 # Check the status of Nginx
 echo "Checking Nginx status..."

@@ -3,7 +3,7 @@
 # Default values for scale and base
 scale=1
 base=35000
-config_file="tvsapp"
+config_file="tvsapp.conf"
 target_directory="/etc/nginx/sites-available/"
 ports_file="/tmp/tvsapp_ports.txt"
 port=0
@@ -24,10 +24,10 @@ if ! [[ "$scale" =~ ^[0-9]+$ ]]; then
 fi
 
 # Call the tvs-stop.sh script to stop any running instances
-if [ -f "./tvsapp-stop.sh" ]; then
-  ./tvs-stop.sh
+if [ -f "/opt/isel/tvs/tvsctld/bin/scripts/tvsapp-stop.sh" ]; then
+  sudo bash ./tvsapp-stop.sh
 else
-  echo "Error: tvs-stop.sh script not found."
+  echo "Error: tvsapp-stop.sh script not found."
   exit 1
 fi
 
