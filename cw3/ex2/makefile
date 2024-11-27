@@ -2,7 +2,7 @@ BIN = bin
 
 CC = gcc
 
-CFLAGS = -g -Wall
+CFLAGS = -g -Wall -Iinclude
 
 TVS_SRV_SRC = tvsctld.c
 TVS_SRV_CLI = tvsctl.c
