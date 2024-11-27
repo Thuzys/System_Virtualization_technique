@@ -108,3 +108,13 @@ else
     echo "Symbolic link already exists in /etc/nginx/sites-enabled/"
   fi
 fi
+
+if systemctl is-active --quiet nginx; then
+  echo "Reloading Nginx configuration..."  
+  if [ -f "./tvsapp-start.sh" ]; then
+    ./tvs-stop.sh
+  else
+    echo "Error: tvs-stop.sh script not found."
+    exit 1
+  fi
+fi

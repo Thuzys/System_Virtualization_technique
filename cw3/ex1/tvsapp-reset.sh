@@ -23,6 +23,14 @@ if ! [[ "$scale" =~ ^[0-9]+$ ]]; then
   exit 1
 fi
 
+# Call the tvs-stop.sh script to stop any running instances
+if [ -f "./tvsapp-stop.sh" ]; then
+  ./tvs-stop.sh
+else
+  echo "Error: tvs-stop.sh script not found."
+  exit 1
+fi
+
 echo "Generating Nginx config with scale=$scale, base=$base, and output file $config_file..."
 
 rm "$ports_file"&& touch "$ports_file"
