@@ -1,5 +1,3 @@
-BIN = bin
-
 CC = gcc
 
 CFLAGS = -g -Wall -Iinclude

@@ -19,6 +19,7 @@
 #define PARAMS_BUFFER_SIZE 256 // size of parameters buffer
 #define CMD_BUFFER_SIZE 512 // size of command buffer
 #define SERVER_STDIN 3 // server standard input
+#define SERVER_NAME "tvsctld" // server name
 
 // size of pending connections queue
 #define BACKLOG 128
@@ -172,9 +173,9 @@ int main(int argc, char *argv[]) {
 
     // sd_listen_fds(0) is used to detect socket activation
 
-    int nfd = sd_litsten_fds(0); // detect socket activzation
+    int nfd = sd_listen_fds(0); // detect socket activzation
     if (nfd != 1) { // check if number of file descriptors is not 1
-        syslog(LOG_ERR, "Invalid number of file descriptors: %d", nfds);
+        syslog(LOG_ERR, "Invalid number of file descriptors: %d", nfd);
         exit(EXIT_FAILURE); // exit with failure
     }
 

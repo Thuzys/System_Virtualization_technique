@@ -6,7 +6,7 @@ if [ $UID != 0 ] ; then
 fi
 
 TVSD=tvsctld
-TVSD_SRC=./tvsctl.c
+TVSD_SRC=./tvsctld.c
 
 if [ ! -x $TVSD ]; then
 	if [ -f $TVSD_SRC ]; then
