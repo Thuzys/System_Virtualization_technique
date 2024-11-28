@@ -20,4 +20,4 @@ uninstall:
 	./uninstall.sh
 
 clean:
-	rm -rf *.o
+	rm -rf *.o tvsctld tvsctl

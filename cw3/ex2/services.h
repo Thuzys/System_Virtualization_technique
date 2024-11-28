@@ -2,3 +2,4 @@
 
 #define SOCKET_PATH "/run/isel/tvsctld/request/"
 #define SOCKET_NAME  SOCKET_PATH "tvsctld.sock"
+#define FINAL_MESSAGE "shutDown connection"

@@ -31,9 +31,9 @@ if [ ! -d $TVSD_DIR ]; then
 fi
 
 # Copy necessary files
-cp $TVSD $TVSD_DIR
-cp $TVSD.service $SYSTD_DIR
-cp $TVSD.socket $SYSTD_DIR
+cp -f $TVSD $TVSD_DIR
+cp -f $TVSD.service $SYSTD_DIR
+cp -f $TVSD.socket $SYSTD_DIR
 
 # Ensure the ownership of the installed binary
 echo "Updating ownership of the binary..."
@@ -61,5 +61,8 @@ else
     echo "Socket file $SOCK_PATH not found. Please ensure the service is running correctly."
     exit 1
 fi
+
+# Copy the scripts to the scripts directory
+sudo cp -r -f ./ex1/* $TVSD_DIR/bin/scripts
 
 echo "Installation complete"

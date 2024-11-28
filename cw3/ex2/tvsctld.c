@@ -60,6 +60,20 @@ void init() {
 }
 
 /**
+ * Shutdown the connection with the client
+ * 
+ * @param cfd  The client filedescriptor
+ * 
+ * @return void.
+ */
+void shutdown_connection(int cfd) {
+    if (shutdown(cfd, SHUT_RDWR) == -1) {
+        perror("shutdown");
+    }
+    close(cfd);
+}
+
+/**
  * Process connection
  * 
  * @param cfd client socket
@@ -102,7 +116,7 @@ void process_connection(int cfd) {
         } else if (strcmp(command, "start") == 0) {
             snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/tvsctld/bin/scripts/tvsapp-start.sh");
         } else if (strcmp(command, "stop") == 0) {
-            snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/tvsctld/bin/scripts/tvsapp-stop.sh -d %s", params);
+            snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/tvsctld/bin/scripts/tvsapp-stop.sh %s", params);
         } else if (strcmp(command, "status") == 0) {
             snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/tvsctld/bin/scripts/tvsapp-status.sh");
         } else if (strcmp(command, "inc") == 0) {
@@ -117,8 +131,9 @@ void process_connection(int cfd) {
         int child_pid = fork();
         if (child_pid == -1) {
             perror("fork");
-            write(cfd, "Forking failed\n", 15);
-            close(cfd);
+            write(cfd, "Forking failed\n\0", 15);
+            write(cfd, FINAL_MESSAGE, sizeof(FINAL_MESSAGE));
+            shutdown_connection(cfd);
             return;
         }
 
@@ -126,7 +141,6 @@ void process_connection(int cfd) {
             // Redirect the output of the command to the client socket
             if (dup2(cfd, STDOUT_FILENO) == -1) {
                 perror("dup2");
-                close(cfd);
                 exit(EXIT_FAILURE);
             }
 
@@ -137,7 +151,7 @@ void process_connection(int cfd) {
             } else {
                 write(cfd, "Command executed successfully\n", 30);
             }
-
+            write(cfd, FINAL_MESSAGE, sizeof(FINAL_MESSAGE));
             exit(EXIT_SUCCESS);  // Exit child process after command execution
         }
     }
@@ -147,8 +161,8 @@ void process_connection(int cfd) {
         perror("read");
         write(cfd, "Error reading data\n", 19);
     }
-
-    close(cfd);  // Close the client socket
+    
+    shutdown_connection(cfd);  // Close the client socket
 }
 
 /**
