@@ -25,7 +25,7 @@ fi
 
 # Call the tvs-stop.sh script to stop any running instances
 if [ -f "/opt/isel/tvs/tvsctld/bin/scripts/tvsapp-stop.sh" ]; then
-  sudo bash ./tvsapp-stop.sh
+  sudo bash /opt/isel/tvs/tvsctld/bin/scripts/tvsapp-stop.sh
 else
   echo "Error: tvsapp-stop.sh script not found."
   exit 1

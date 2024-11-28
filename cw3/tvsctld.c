@@ -116,7 +116,7 @@ void process_connection(int cfd) {
         } else if (strcmp(command, "start") == 0) {
             snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/tvsctld/bin/scripts/tvsapp-start.sh");
         } else if (strcmp(command, "stop") == 0) {
-            snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/tvsctld/bin/scripts/tvsapp-stop.sh -d %s", params);
+            snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/tvsctld/bin/scripts/tvsapp-stop.sh %s", params);
         } else if (strcmp(command, "status") == 0) {
             snprintf(cmd, sizeof(cmd), "/opt/isel/tvs/tvsctld/bin/scripts/tvsapp-status.sh");
         } else if (strcmp(command, "inc") == 0) {
@@ -131,8 +131,9 @@ void process_connection(int cfd) {
         int child_pid = fork();
         if (child_pid == -1) {
             perror("fork");
-            write(cfd, "Forking failed\n", 15);
-            close(cfd);
+            write(cfd, "Forking failed\n\0", 15);
+            write(cfd, FINAL_MESSAGE, sizeof(FINAL_MESSAGE));
+            shutdown_connection(cfd);
             return;
         }
 

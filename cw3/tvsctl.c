@@ -7,7 +7,6 @@
 #include "services.h" // services header
 
 #define REQUEST_BUFFER_SIZE 256 // size of request buffer
-#define NITERS 10 // number of iterations
 
 int create_client_socket() {
     return socket(AF_UNIX, SOCK_STREAM, 0); // create socket
@@ -97,7 +96,7 @@ int main(int argc, char *argv[]) {
 	printf("Sent request: %s\n", request); // print request
 	write(cli_sock, request, strlen(request)); // write request to socket
     char response[REQUEST_BUFFER_SIZE] = {0};
-    while (read(cli_sock, response, REQUEST_BUFFER_SIZE) > 0) {
+    while (read(cli_sock, response, REQUEST_BUFFER_SIZE-1) > 0) {
 		if ((strcmp(response, FINAL_MESSAGE) == 0)) {
 			break;
 		}
