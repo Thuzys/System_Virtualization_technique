@@ -1,0 +1,39 @@
+services:
+  entry:
+    container_name: entry
+    build:
+      context: ./entry
+      dockerfile: ./Dockerfile
+    ports:
+      - "2024:80"
+    networks:
+      - frontend
+      
+  webapp:
+    container_name: webapp
+    build:
+      context: ./tvsapp
+      dockerfile: ./Dockerfile
+    environment:
+      - ELASTIC_URL=http://storage:9200
+    networks:
+      - frontend
+      - backend
+
+  storage:
+    container_name: storage
+    image: elasticsearch:8.16.1
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    networks:
+      - backend
+
+networks:
+  frontend:
+  backend:
+
+volumes:
+  esdata:
