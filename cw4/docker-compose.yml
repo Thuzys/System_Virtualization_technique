@@ -1,3 +1,4 @@
+
 services:
   entry:
     container_name: entry
@@ -8,7 +9,7 @@ services:
       - "2024:80"
     networks:
       - frontend
-      
+  
   webapp:
     build:
       context: ./tvsapp
@@ -21,18 +22,17 @@ services:
 
   storage:
     container_name: storage
-    image: elasticsearch:8.16.1
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
+    build:
+      context: ./storage
+      dockerfile: ./Dockerfile
     volumes:
       - esdata:/usr/share/elasticsearch/data
     networks:
       - backend
 
+volumes:
+  esdata:
+
 networks:
   frontend:
   backend:
-
-volumes:
-  esdata:
